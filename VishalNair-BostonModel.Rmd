@@ -1,0 +1,117 @@
+---
+title: "Boston Housing Model Analysis"
+author: "Vishal Nair"
+date: "2024-10-23"
+output: pdf_document
+---
+
+#Exercise - create model
+
+#Our aim is to create a model to predict the median house value (mdev), in Boston Suburbs
+
+```{r,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+data("Boston",package = "MASS")
+
+library(caret)
+library(arm)
+library(leaps)
+library(Metrics)
+
+```
+
+#Split the data in 70% (train) and 30% (test)
+
+```{r}
+set.seed(123)
+rows<-sample(nrow(Boston[complete.cases(Boston),]), 0.7*nrow(Boston))
+trainData <- Boston[rows, ]
+testData <- Boston[-rows, ]
+```
+
+#Create a predictive model using a stepwise procedure We will try to create a linear model for our problem and we can use the step() and regsubsets() function for automatic selection of variables to be included in the linear model
+
+```{r, echo=FALSE}
+
+step_model<-step(lm(medv ~ ., data = trainData), trace = F, direction = "both")
+display(step_model)
+
+regsubmodel<-regsubsets(medv ~ ., data = trainData, method = "exhaustive", nbest = 1)
+plot(regsubmodel)
+```
+
+We will try to make 3 models using the variables from step and regsubsets functions and also a model using all the variables. Thus from the result of the step() we can see which variables/predictors to select and from the regsubsets() function we select the variables with lowest BIC
+
+#Provide a goodness-of-fit value of the model using cross-validation in the train set
+
+Now we will train the models using the variables selected in the last step and use cross validation to measure the goodness of fit value of the models
+
+Using the train function of caret library we can fit the model on the training data and cross validate the model with 10 subfolds
+
+We can then use the results to see how good the model performs using the metrics like RMSE,R square and MAE.Lower the RMSE and MAE and higher the RSquare (closer to 1) the better will be the model.
+
+first is the model with variables selected using the step function
+
+```{r}
+set.seed(123)
+trainControl <- trainControl(method = "cv", number = 10)
+stepmodel<-train(medv ~ crim+zn+chas+nox+rm+dis+rad+tax+ptratio+black+lstat,data=trainData,method="lm",trControl = trainControl)
+print(stepmodel)
+```
+
+Next we train the model with all variables
+
+```{r}
+set.seed(123)
+fullmodel<-train(medv ~ ., data = trainData, method = "lm",trControl = trainControl)
+print(fullmodel)
+```
+
+Next we train a model with the variables having the lowest BIC which we found using the regsubsets function
+
+```{r}
+set.seed(123)
+regsub_model<-train(medv~zn+chas+nox+rm+dis+ptratio+lstat,data=trainData,method="lm",trControl = trainControl)
+print(regsub_model)
+```
+
+Thus we can see the Step model(variables selected from the step function) has the lowest RMSE,MAE and highest R2
+
+#Validate the model in the test dataset and compare model performance with the value obtained in the previous step
+
+Finally we validate the model using the metrics RMSE and R2 on the training and test data
+
+```{r}
+predictions_stepmodel<-predict(stepmodel, newdata = testData)
+predictions_fullmodel<-predict(fullmodel, newdata = testData)
+predictions_regsub_model<-predict(regsub_model, newdata = testData)
+```
+
+```{r}
+
+results <- data.frame(Model = c("Full model in-sample",
+                                "Full model out-of-sample",
+                                "Step model in-sample",
+                                "Step model out-of-sample",
+                                "reg_sub model in sample",
+                                "reg_sub model out sample"),
+                      RMSE = round(c(rmse(fitted(fullmodel), trainData$medv),
+                               rmse(predict(fullmodel, newdata = testData), testData$medv), 
+                               rmse(fitted(stepmodel), trainData$medv),
+                               rmse(predict(stepmodel, newdata = testData), testData$medv),
+                               rmse(fitted(regsub_model), trainData$medv),
+                               rmse(predict(regsub_model, newdata = testData), testData$medv)),3),
+                      R2 =  round(c(R2(fitted(fullmodel), trainData$medv),
+                               R2(predict(fullmodel, newdata = testData), testData$medv), 
+                               R2(fitted(stepmodel), trainData$medv),
+                               R2(predict(stepmodel, newdata = testData), testData$medv),
+                               R2(fitted(regsub_model), trainData$medv),
+                               R2(predict(regsub_model, newdata = testData), testData$medv)),3))
+
+results
+
+```
+
+As we can see on the training Data the Full model(with all the variables) has the least RMSE but on the test data the RMSE increases as expected because we are overfitting the model (high variance) and hence the performance dereases on the test data.The stepwise model has almost identical performance to the full model in-sample, suggesting that it captures the important predictors effectively while being simpler.The regsubsets model has a slightly higher RMSE and lower R2 compared to the full and step models, indicating it might be slightly less accurate in-sample.The stepwise model performs nearly identically to the full model in-sample but slightly better out-of-sample. This suggests that the stepwise model is simpler and generalizes better.The regsubsets model performs worse both in-sample and out-of-sample compared to the full and stepwise models. This indicates that its feature selection might not be optimal.
+
+So we conclude that Step Model using the variables selected from the step function in both directions performs the best which we could also see from the Cross-validation results.
