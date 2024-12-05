@@ -132,5 +132,4 @@ This project uses regression techniques to predict house prices in Boston. The d
 
 - **Vishal Nair**
 - [Email](mailto:v1292002@gmail.com)
-- [LinkedIn]([https://www.linkedin.com/in/vishal-nair-9a87a1183/](https://www.linkedin.com/in/vishal-nair-a1a6781ba/))
 
