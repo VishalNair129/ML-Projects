@@ -123,8 +123,7 @@ This project uses regression techniques to predict house prices in Boston. The d
 - Mean Squared Error (MSE)
 - R-squared Error
 
-### Libraries
-- pandas, scikit-learn, seaborn, matplotlib
+
 
 ---
 
